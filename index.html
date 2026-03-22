@@ -105,56 +105,73 @@
     }
     window.onload = resizeCanvas;
 
-    // --- DOODLING ---
-    container.onmousedown = (e) => {
+    // --- HELPER: Get coordinates for both Mouse and Touch ---
+    function getCoords(e) {
+        const rect = container.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: clientX - rect.left, y: clientY - rect.top, rawX: clientX, rawY: clientY };
+    }
+
+    // --- DOODLING (Touch Compatible) ---
+    const startDraw = (e) => {
         if(e.target === container) {
             isDrawing = true;
+            const coords = getCoords(e);
             ctx.beginPath();
-            ctx.moveTo(e.clientX - 280, e.clientY);
+            ctx.moveTo(coords.x, coords.y);
         }
     };
-    container.onmousemove = (e) => {
+    const moveDraw = (e) => {
         if (!isDrawing) return;
+        const coords = getCoords(e);
         ctx.strokeStyle = document.getElementById('brushColor').value;
         ctx.lineWidth = 3; ctx.lineCap = 'round';
-        ctx.lineTo(e.clientX - 280, e.clientY);
+        ctx.lineTo(coords.x, coords.y);
         ctx.stroke();
     };
-    container.onmouseup = () => isDrawing = false;
+    container.addEventListener('mousedown', startDraw);
+    container.addEventListener('touchstart', startDraw, {passive: false});
+    container.addEventListener('mousemove', moveDraw);
+    container.addEventListener('touchmove', (e) => { if(isDrawing) e.preventDefault(); moveDraw(e); }, {passive: false});
+    window.addEventListener('mouseup', () => isDrawing = false);
+    window.addEventListener('touchend', () => isDrawing = false);
+
     function clearDrawings() { ctx.clearRect(0,0,drawCanvas.width, drawCanvas.height); }
 
     // --- ADDING ELEMENTS ---
     function addToCanvas(el) {
         el.style.zIndex = zIndex++;
         container.appendChild(el);
-        makeDraggableAndResizable(el);
+        makeInteractive(el);
         history.push(el);
     }
 
+    // (AddSticker, AddShape, AddText, AddDate functions stay exactly the same as before)
     function addSticker(emoji) {
         const div = document.createElement('div');
         div.className = 'draggable';
         div.style.fontSize = '60px';
         div.innerText = emoji;
-        div.style.left = '350px'; div.style.top = '100px';
+        div.style.left = '50px'; div.style.top = '100px';
         addToCanvas(div);
     }
 
     function addShape(type) {
         const div = document.createElement('div');
         div.className = `draggable shape ${type}`;
-        div.style.left = '350px'; div.style.top = '100px';
+        div.style.left = '50px'; div.style.top = '100px';
         addToCanvas(div);
     }
 
     function addText() {
-        const val = document.getElementById('textInput').value || "Hello";
+        const val = document.getElementById('textInput').value || "Note";
         const div = document.createElement('div');
         div.className = 'draggable';
         div.style.fontFamily = '"Brush Script MT", cursive';
         div.style.fontSize = '40px';
         div.innerText = val;
-        div.style.left = '350px'; div.style.top = '100px';
+        div.style.left = '50px'; div.style.top = '100px';
         addToCanvas(div);
     }
 
@@ -163,7 +180,7 @@
         const div = document.createElement('div');
         div.className = 'draggable date-stamp';
         div.innerText = `'${d.getFullYear().toString().slice(-2)} ${d.getMonth()+1} ${d.getDate()}`;
-        div.style.left = '350px'; div.style.top = '100px';
+        div.style.left = '50px'; div.style.top = '100px';
         addToCanvas(div);
     }
 
@@ -178,59 +195,73 @@
             div.className = isP ? 'draggable polaroid-frame' : 'draggable';
             const img = document.createElement('img');
             img.src = ev.target.result;
-            img.style.width = isP ? '180px' : '220px';
+            img.style.width = isP ? '150px' : '200px';
             div.appendChild(img);
-            div.style.left = '350px'; div.style.top = '50px';
+            div.style.left = '20px'; div.style.top = '50px';
             addToCanvas(div);
         };
         r.readAsDataURL(e.target.files[0]);
     }
 
-    // --- DRAG & RESIZE LOGIC ---
-    function makeDraggableAndResizable(el) {
+    // --- NEW INTERACTIVE LOGIC (DRAG & RESIZE FOR MOBILE) ---
+    function makeInteractive(el) {
         const resizer = document.createElement('div');
         resizer.className = 'resizer';
         el.appendChild(resizer);
 
-        let x, y, w, h, mx, my;
+        let startX, startY, startW, startH, startLeft, startTop;
 
-        el.onmousedown = (e) => {
-            if(e.target.className === 'resizer') return;
+        const onStart = (e) => {
             e.stopPropagation();
             zIndex++; el.style.zIndex = zIndex;
-            mx = e.clientX; my = e.clientY;
-            document.onmousemove = (e) => {
-                let dx = mx - e.clientX; let dy = my - e.clientY;
-                mx = e.clientX; my = e.clientY;
-                el.style.top = (el.offsetTop - dy) + "px";
-                el.style.left = (el.offsetLeft - dx) + "px";
+            const coords = getCoords(e);
+            startX = coords.rawX;
+            startY = coords.rawY;
+            startW = el.offsetWidth;
+            startH = el.offsetHeight;
+            startLeft = el.offsetLeft;
+            startTop = el.offsetTop;
+
+            const isResizing = e.target === resizer;
+
+            const onMove = (moveEv) => {
+                const moveCoords = getCoords(moveEv);
+                if (isResizing) {
+                    const newWidth = startW + (moveCoords.rawX - startX);
+                    el.style.width = newWidth + "px";
+                    const img = el.querySelector('img');
+                    if(img) img.style.width = "100%";
+                } else {
+                    el.style.left = (startLeft + (moveCoords.rawX - startX)) + "px";
+                    el.style.top = (startTop + (moveCoords.rawY - startY)) + "px";
+                }
             };
-            document.onmouseup = () => document.onmousemove = null;
+
+            const onEnd = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('touchmove', onMove);
+                document.removeEventListener('mouseup', onEnd);
+                document.removeEventListener('touchend', onEnd);
+            };
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('touchmove', onMove, {passive: false});
+            document.addEventListener('mouseup', onEnd);
+            document.addEventListener('touchend', onEnd);
         };
 
-        resizer.onmousedown = (e) => {
-            e.stopPropagation();
-            mx = e.clientX; my = e.clientY;
-            w = el.offsetWidth; h = el.offsetHeight;
-            document.onmousemove = (e) => {
-                const dw = e.clientX - mx;
-                el.style.width = (w + dw) + "px";
-                const img = el.querySelector('img');
-                if(img) img.style.width = "100%";
-            };
-            document.onmouseup = () => document.onmousemove = null;
-        };
+        el.addEventListener('mousedown', onStart);
+        el.addEventListener('touchstart', onStart, {passive: false});
     }
 
     function undo() { if(history.length > 0) history.pop().remove(); }
 
-    // --- SAVE LOGIC ---
     function exportScrapbook() {
         const btn = document.querySelector('.save-btn');
-        btn.innerText = "Processing...";
+        btn.innerText = "Saving...";
         html2canvas(container).then(canvas => {
             const link = document.createElement('a');
-            link.download = 'my-scrapbook.png';
+            link.download = 'scrapbook.png';
             link.href = canvas.toDataURL();
             link.click();
             btn.innerText = "💾 SAVE & DOWNLOAD";
