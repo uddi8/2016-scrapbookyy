@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Aesthetic Scrapbook ˚ ༘♡</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root { --bg: #faf7f2; --panel: #ffffff; --accent: #b7b7a4; --date: #ff8c00; }
+        body { background-color: var(--bg); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+
+        .sidebar {
+            width: 280px; background: var(--panel); border-right: 1px solid #e0ddd5;
+            padding: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 100;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.03); overflow-y: auto;
+        }
+
+        #canvas-container { flex-grow: 1; position: relative; background: #fffdf9; overflow: hidden; }
+        #drawingCanvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 5; }
+
+        /* Draggable & Resizable */
+        .draggable { position: absolute; cursor: move; user-select: none; z-index: 10; padding: 5px; }
+        .draggable:hover { outline: 2px dashed #d4a373; }
+        
+        /* Resize Handle */
+        .resizer {
+            width: 12px; height: 12px; background: #d4a373;
+            position: absolute; right: -5px; bottom: -5px;
+            cursor: nwse-resize; border-radius: 50%; display: none;
+        }
+        .draggable:hover .resizer { display: block; }
+
+        .polaroid-frame {
+            background: white; padding: 10px 10px 30px 10px;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1); display: inline-block;
+        }
+        .polaroid-frame img { display: block; width: 100%; height: auto; }
+
+        .shape { display: flex; align-items: center; justify-content: center; }
+        .heart { background: #ffb7b2; width: 60px; height: 60px; clip-path: path('M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'); transform: scale(1.5); }
+        .circle { border-radius: 50%; width: 60px; height: 60px; background: #b5ead7; }
+        .tape { width: 90px; height: 30px; background: rgba(212, 163, 115, 0.4); backdrop-filter: blur(2px); transform: rotate(15deg); }
+
+        .date-stamp { font-family: 'Courier New', Courier, monospace; color: var(--date); font-weight: bold; font-size: 20px; text-shadow: 1px 1px #5c2b00; }
+
+        button { background: #f1f1f1; border: none; padding: 8px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+        button:hover { background: var(--accent); color: white; }
+        .save-btn { background: #ccd5ae; font-weight: bold; margin-top: 10px; border: 2px solid #a3ad85; }
+        label { font-size: 11px; font-weight: bold; color: #aaa; margin-top: 8px; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h2 style="color: #d4a373;">scrapbook v3 ✨</h2>
+    <button class="save-btn" onclick="exportScrapbook()">💾 SAVE & DOWNLOAD</button>
+    <button onclick="undo()">↩ Undo</button>
+
+    <label>DRAWING</label>
+    <input type="color" id="brushColor" value="#ffb7b2" style="width:100%; height:25px; border:none;">
+    <button onclick="clearDrawings()">Clear Doodles</button>
+
+    <label>PHOTOS</label>
+    <button onclick="document.getElementById('pInput').click()">+ Polaroid</button>
+    <button onclick="document.getElementById('imgInput').click()">+ Plain Photo</button>
+    <input type="file" id="pInput" hidden accept="image/*">
+    <input type="file" id="imgInput" hidden accept="image/*">
+
+    <label>TEXT</label>
+    <input type="text" id="textInput" placeholder="Note...">
+    <button onclick="addText()">Add Text</button>
+    <button onclick="addDate()">Add Date Stamp</button>
+
+    <label>STICKERS</label>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;">
+        <button onclick="addSticker('🐰')">🐰</button>
+        <button onclick="addSticker('🐱')">🐱</button>
+        <button onclick="addSticker('🎀')">🎀</button>
+        <button onclick="addSticker('🍓')">🍓</button>
+        <button onclick="addSticker('🧸')">🧸</button>
+        <button onclick="addSticker('🍄')">🍄</button>
+    </div>
+
+    <label>SHAPES</label>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+        <button onclick="addShape('heart')">Heart</button>
+        <button onclick="addShape('tape')">Tape</button>
+        <button onclick="addShape('circle')">Circle</button>
+    </div>
+</div>
+
+<div id="canvas-container">
+    <canvas id="drawingCanvas"></canvas>
+</div>
+
+<script>
+    const container = document.getElementById('canvas-container');
+    const drawCanvas = document.getElementById('drawingCanvas');
+    const ctx = drawCanvas.getContext('2d');
+    let history = [];
+    let zIndex = 10;
+    let isDrawing = false;
+
+    function resizeCanvas() {
+        drawCanvas.width = container.clientWidth;
+        drawCanvas.height = container.clientHeight;
+    }
+    window.onload = resizeCanvas;
+
+    // --- DOODLING ---
+    container.onmousedown = (e) => {
+        if(e.target === container) {
+            isDrawing = true;
+            ctx.beginPath();
+            ctx.moveTo(e.clientX - 280, e.clientY);
+        }
+    };
+    container.onmousemove = (e) => {
+        if (!isDrawing) return;
+        ctx.strokeStyle = document.getElementById('brushColor').value;
+        ctx.lineWidth = 3; ctx.lineCap = 'round';
+        ctx.lineTo(e.clientX - 280, e.clientY);
+        ctx.stroke();
+    };
+    container.onmouseup = () => isDrawing = false;
+    function clearDrawings() { ctx.clearRect(0,0,drawCanvas.width, drawCanvas.height); }
+
+    // --- ADDING ELEMENTS ---
+    function addToCanvas(el) {
+        el.style.zIndex = zIndex++;
+        container.appendChild(el);
+        makeDraggableAndResizable(el);
+        history.push(el);
+    }
+
+    function addSticker(emoji) {
+        const div = document.createElement('div');
+        div.className = 'draggable';
+        div.style.fontSize = '60px';
+        div.innerText = emoji;
+        div.style.left = '350px'; div.style.top = '100px';
+        addToCanvas(div);
+    }
+
+    function addShape(type) {
+        const div = document.createElement('div');
+        div.className = `draggable shape ${type}`;
+        div.style.left = '350px'; div.style.top = '100px';
+        addToCanvas(div);
+    }
+
+    function addText() {
+        const val = document.getElementById('textInput').value || "Hello";
+        const div = document.createElement('div');
+        div.className = 'draggable';
+        div.style.fontFamily = '"Brush Script MT", cursive';
+        div.style.fontSize = '40px';
+        div.innerText = val;
+        div.style.left = '350px'; div.style.top = '100px';
+        addToCanvas(div);
+    }
+
+    function addDate() {
+        const d = new Date();
+        const div = document.createElement('div');
+        div.className = 'draggable date-stamp';
+        div.innerText = `'${d.getFullYear().toString().slice(-2)} ${d.getMonth()+1} ${d.getDate()}`;
+        div.style.left = '350px'; div.style.top = '100px';
+        addToCanvas(div);
+    }
+
+    // --- IMAGE LOADING ---
+    document.getElementById('pInput').onchange = (e) => handleImg(e, true);
+    document.getElementById('imgInput').onchange = (e) => handleImg(e, false);
+
+    function handleImg(e, isP) {
+        const r = new FileReader();
+        r.onload = (ev) => {
+            const div = document.createElement('div');
+            div.className = isP ? 'draggable polaroid-frame' : 'draggable';
+            const img = document.createElement('img');
+            img.src = ev.target.result;
+            img.style.width = isP ? '180px' : '220px';
+            div.appendChild(img);
+            div.style.left = '350px'; div.style.top = '50px';
+            addToCanvas(div);
+        };
+        r.readAsDataURL(e.target.files[0]);
+    }
+
+    // --- DRAG & RESIZE LOGIC ---
+    function makeDraggableAndResizable(el) {
+        const resizer = document.createElement('div');
+        resizer.className = 'resizer';
+        el.appendChild(resizer);
+
+        let x, y, w, h, mx, my;
+
+        el.onmousedown = (e) => {
+            if(e.target.className === 'resizer') return;
+            e.stopPropagation();
+            zIndex++; el.style.zIndex = zIndex;
+            mx = e.clientX; my = e.clientY;
+            document.onmousemove = (e) => {
+                let dx = mx - e.clientX; let dy = my - e.clientY;
+                mx = e.clientX; my = e.clientY;
+                el.style.top = (el.offsetTop - dy) + "px";
+                el.style.left = (el.offsetLeft - dx) + "px";
+            };
+            document.onmouseup = () => document.onmousemove = null;
+        };
+
+        resizer.onmousedown = (e) => {
+            e.stopPropagation();
+            mx = e.clientX; my = e.clientY;
+            w = el.offsetWidth; h = el.offsetHeight;
+            document.onmousemove = (e) => {
+                const dw = e.clientX - mx;
+                el.style.width = (w + dw) + "px";
+                const img = el.querySelector('img');
+                if(img) img.style.width = "100%";
+            };
+            document.onmouseup = () => document.onmousemove = null;
+        };
+    }
+
+    function undo() { if(history.length > 0) history.pop().remove(); }
+
+    // --- SAVE LOGIC ---
+    function exportScrapbook() {
+        const btn = document.querySelector('.save-btn');
+        btn.innerText = "Processing...";
+        html2canvas(container).then(canvas => {
+            const link = document.createElement('a');
+            link.download = 'my-scrapbook.png';
+            link.href = canvas.toDataURL();
+            link.click();
+            btn.innerText = "💾 SAVE & DOWNLOAD";
+        });
+    }
+</script>
+</body>
+</html>
