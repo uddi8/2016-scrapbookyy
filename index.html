@@ -3,119 +3,145 @@
 <head>
     <title>Aesthetic Scrapbook ˚ ༘♡</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<style>
-    :root { --bg: #faf7f2; --panel: #ffffff; --accent: #b7b7a4; }
-    body { background-color: var(--bg); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    <style>
+        :root { --bg: #faf7f2; --panel: #ffffff; --accent: #b7b7a4; --date: #ff8c00; }
+        body { background-color: var(--bg); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
 
-    /* The Canvas Area */
-    #canvas-container { 
-        flex-grow: 1; 
-        position: relative; 
-        overflow: auto; /* Allows scrolling when zooming */
-        background-color: #fff;
-        background-size: 100% 100%;
-        transition: background 0.3s;
-    }
+        .sidebar {
+            width: 260px; background: var(--panel); border-right: 1px solid #e0ddd5;
+            padding: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 100;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.03); overflow-y: auto;
+        }
 
-    /* Bottom Home Bar */
-    .home-bar {
-        height: 70px;
-        background: var(--panel);
-        border-top: 1px solid #e0ddd5;
-        display: flex;
-        justify-content: space-around;
-        align-items: center;
-        padding: 0 10px;
-        z-index: 1000;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-    }
+        #canvas-container { 
+            flex-grow: 1; position: relative; overflow: auto; background-color: #fffdf9;
+            transition: background 0.3s;
+        }
+        #drawingCanvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 5; }
 
-    /* Floating Tool Menu (Opens from Home Bar) */
-    .tool-panel {
-        position: absolute;
-        bottom: 80px;
-        left: 10px;
-        right: 10px;
-        background: white;
-        border-radius: 20px;
-        padding: 15px;
-        display: none; /* Hidden by default */
-        grid-template-columns: repeat(3, 1fr);
-        gap: 8px;
-        box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
-        z-index: 1001;
-    }
+        /* Textures */
+        .texture-grid { background-image: radial-gradient(#d1d1d1 1px, transparent 1px); background-size: 20px 20px; }
+        .texture-pink { background-color: #fff0f3; background-image: linear-gradient(#f9dcc4 1px, transparent 1px), linear-gradient(90deg, #f9dcc4 1px, transparent 1px); background-size: 20px 20px; }
+        .texture-paper { background-image: url('https://www.transparenttextures.com/patterns/beige-paper.png'); }
 
-    /* Paper Textures */
-    .texture-grid { background-image: radial-gradient(#d1d1d1 1px, transparent 1px); background-size: 20px 20px; }
-    .texture-pink { background-color: #fff0f3; background-image: linear-gradient(#f9dcc4 1px, transparent 1px), linear-gradient(90deg, #f9dcc4 1px, transparent 1px); background-size: 20px 20px; }
-    .texture-paper { background-image: url('https://www.transparenttextures.com/patterns/beige-paper.png'); }
+        .draggable { position: absolute; cursor: move; user-select: none; z-index: 10; padding: 5px; }
+        .draggable:hover { outline: 2px dashed #d4a373; }
+        
+        .resizer {
+            width: 15px; height: 15px; background: #d4a373; position: absolute; 
+            right: -5px; bottom: -5px; cursor: nwse-resize; border-radius: 50%; display: none;
+        }
+        .draggable:hover .resizer { display: block; }
 
-    /* Toggle Button State */
-    .active-mode { background: #d4a373 !important; color: white !important; }
+        .polaroid-frame {
+            background: white; padding: 10px 10px 30px 10px;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1); display: inline-block;
+        }
+        .polaroid-frame img { display: block; width: 100%; height: auto; }
 
-    button { background: #f8f9fa; border: 1px solid #eee; padding: 10px; border-radius: 12px; font-size: 12px; }
-    #drawingCanvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 5; }
-</style>
+        .shape { display: flex; align-items: center; justify-content: center; }
+        .heart { background: #ffb7b2; width: 60px; height: 60px; clip-path: path('M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'); transform: scale(1.5); }
+        .tape { width: 90px; height: 30px; background: rgba(212, 163, 115, 0.4); backdrop-filter: blur(2px); transform: rotate(15deg); }
 
-<body>
-    <div id="canvas-container" class="texture-grid">
-        <canvas id="drawingCanvas"></canvas>
+        .date-stamp { font-family: 'Courier New', Courier, monospace; color: var(--date); font-weight: bold; font-size: 20px; }
+
+        button { background: #f1f1f1; border: none; padding: 8px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+        button:hover { background: var(--accent); color: white; }
+        .mode-btn { background: #ffdac1; font-weight: bold; border: 2px solid #ffb7b2; }
+        .active-mode { background: #ffb7b2; color: white; }
+        label { font-size: 11px; font-weight: bold; color: #aaa; margin-top: 8px; }
+    </style>
+</head>
+<body class="texture-grid">
+
+<div class="sidebar">
+    <h2 style="color: #d4a373;">scrapbook v4 ✨</h2>
+    
+    <button id="lockBtn" class="mode-btn" onclick="toggleLock()">✍️ Drawing: OFF</button>
+    <button onclick="undo()">↩ Undo</button>
+    <button onclick="exportScrapbook()" style="background:#ccd5ae">💾 Save & Download</button>
+
+    <label>PAPER STYLE</label>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+        <button onclick="setPaper('texture-grid')">Dot</button>
+        <button onclick="setPaper('texture-pink')">Pink</button>
+        <button onclick="setPaper('texture-paper')">Vintage</button>
     </div>
 
-    <div id="stickerPanel" class="tool-panel">
+    <label>DRAWING COLOR</label>
+    <input type="color" id="brushColor" value="#ffb7b2" style="width:100%; height:25px; border:none;">
+    <button onclick="clearDrawings()">Clear Doodles</button>
+
+    <label>PHOTOS</label>
+    <button onclick="document.getElementById('pInput').click()">+ Polaroid</button>
+    <button onclick="document.getElementById('imgInput').click()">+ Plain Photo</button>
+    <input type="file" id="pInput" hidden accept="image/*">
+    <input type="file" id="imgInput" hidden accept="image/*">
+
+    <label>TEXT</label>
+    <input type="text" id="textInput" placeholder="Note...">
+    <button onclick="addText()">Add Text</button>
+    <button onclick="addDate()">Add Date</button>
+
+    <label>STICKERS</label>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;">
         <button onclick="addSticker('🐰')">🐰</button>
-        <button onclick="addSticker('🧸')">🧸</button>
-        <button onclick="addSticker('🍓')">🍓</button>
+        <button onclick="addSticker('🐱')">🐱</button>
         <button onclick="addSticker('🎀')">🎀</button>
+        <button onclick="addSticker('🍓')">🍓</button>
+        <button onclick="addSticker('🧸')">🧸</button>
+        <button onclick="addSticker('🍄')">🍄</button>
+    </div>
+
+    <label>SHAPES</label>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
         <button onclick="addShape('heart')">Heart</button>
         <button onclick="addShape('tape')">Tape</button>
     </div>
+</div>
 
-    <div id="paperPanel" class="tool-panel">
-        <button onclick="changePaper('texture-grid')">Dot Grid</button>
-        <button onclick="changePaper('texture-pink')">Pink Gingham</button>
-        <button onclick="changePaper('texture-paper')">Vintage Paper</button>
-    </div>
-
-    <div class="home-bar">
-        <button onclick="togglePanel('stickerPanel')">✨ Items</button>
-        <button onclick="togglePanel('paperPanel')">📜 Paper</button>
-        <button id="drawModeBtn" onclick="toggleDrawingMode()">✍️ Draw: OFF</button>
-        <button onclick="undo()">↩️ Undo</button>
-        <button onclick="exportScrapbook()" style="background:#ccd5ae">💾 Save</button>
-    </div>
+<div id="canvas-container">
+    <canvas id="drawingCanvas"></canvas>
+</div>
 
 <script>
-    // --- MODE LOGIC: FIXING THE ZOOM FRUSTRATION ---
-    let canDraw = false; 
+    const container = document.getElementById('canvas-container');
+    const drawCanvas = document.getElementById('drawingCanvas');
+    const ctx = drawCanvas.getContext('2d');
+    let history = [];
+    let zIndex = 10;
+    let isDrawing = false;
+    let canDraw = false; // The Lock Variable
 
-    function toggleDrawingMode() {
+    function resizeCanvas() {
+        drawCanvas.width = container.clientWidth;
+        drawCanvas.height = container.clientHeight;
+    }
+    window.onload = resizeCanvas;
+
+    // --- LOCK LOGIC ---
+    function toggleLock() {
         canDraw = !canDraw;
-        const btn = document.getElementById('drawModeBtn');
-        btn.innerText = canDraw ? "✍️ Draw: ON" : "✍️ Draw: OFF";
+        const btn = document.getElementById('lockBtn');
+        btn.innerText = canDraw ? "✍️ Drawing: ON" : "✍️ Drawing: OFF";
         btn.classList.toggle('active-mode');
-        
-        // When drawing is OFF, we re-enable touch for scrolling
         container.style.touchAction = canDraw ? "none" : "auto";
     }
 
-    function togglePanel(panelId) {
-        const panels = document.querySelectorAll('.tool-panel');
-        panels.forEach(p => {
-            if(p.id === panelId) p.style.display = (p.style.display === 'grid') ? 'none' : 'grid';
-            else p.style.display = 'none';
-        });
+    function setPaper(style) {
+        document.body.className = style;
     }
 
-    function changePaper(className) {
-        container.className = className;
-        togglePanel('paperPanel');
+    function getCoords(e) {
+        const rect = container.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: clientX - rect.left, y: clientY - rect.top, rawX: clientX, rawY: clientY };
     }
 
-    // Update your existing startDraw function to check the mode:
+    // --- DOODLING ---
     const startDraw = (e) => {
-        if(!canDraw) return; // This stops accidental doodles!
+        if(!canDraw) return; // Stop drawing if lock is off
         if(e.target === container) {
             isDrawing = true;
             const coords = getCoords(e);
@@ -123,8 +149,136 @@
             ctx.moveTo(coords.x, coords.y);
         }
     };
+    const moveDraw = (e) => {
+        if (!isDrawing || !canDraw) return;
+        const coords = getCoords(e);
+        ctx.strokeStyle = document.getElementById('brushColor').value;
+        ctx.lineWidth = 3; ctx.lineCap = 'round';
+        ctx.lineTo(coords.x, coords.y);
+        ctx.stroke();
+    };
+    container.addEventListener('mousedown', startDraw);
+    container.addEventListener('touchstart', startDraw, {passive: false});
+    container.addEventListener('mousemove', moveDraw);
+    container.addEventListener('touchmove', (e) => { if(isDrawing) e.preventDefault(); moveDraw(e); }, {passive: false});
+    window.addEventListener('mouseup', () => isDrawing = false);
+    window.addEventListener('touchend', () => isDrawing = false);
 
-    // ... (Keep the rest of your existing JS logic for Stickers, Shapes, and Export) ...
+    function clearDrawings() { ctx.clearRect(0,0,drawCanvas.width, drawCanvas.height); }
+
+    // --- ADDING ELEMENTS ---
+    function addToCanvas(el) {
+        el.style.zIndex = zIndex++;
+        container.appendChild(el);
+        makeInteractive(el);
+        history.push(el);
+    }
+
+    function addSticker(emoji) {
+        const div = document.createElement('div');
+        div.className = 'draggable';
+        div.style.fontSize = '60px';
+        div.innerText = emoji;
+        div.style.left = '50px'; div.style.top = '100px';
+        addToCanvas(div);
+    }
+
+    function addShape(type) {
+        const div = document.createElement('div');
+        div.className = `draggable shape ${type}`;
+        div.style.left = '50px'; div.style.top = '100px';
+        addToCanvas(div);
+    }
+
+    function addText() {
+        const val = document.getElementById('textInput').value || "Note";
+        const div = document.createElement('div');
+        div.className = 'draggable';
+        div.style.fontFamily = '"Brush Script MT", cursive';
+        div.style.fontSize = '40px';
+        div.innerText = val;
+        div.style.left = '50px'; div.style.top = '100px';
+        addToCanvas(div);
+    }
+
+    function addDate() {
+        const d = new Date();
+        const div = document.createElement('div');
+        div.className = 'draggable date-stamp';
+        div.innerText = `'${d.getFullYear().toString().slice(-2)} ${d.getMonth()+1} ${d.getDate()}`;
+        div.style.left = '50px'; div.style.top = '100px';
+        addToCanvas(div);
+    }
+
+    document.getElementById('pInput').onchange = (e) => handleImg(e, true);
+    document.getElementById('imgInput').onchange = (e) => handleImg(e, false);
+
+    function handleImg(e, isP) {
+        const r = new FileReader();
+        r.onload = (ev) => {
+            const div = document.createElement('div');
+            div.className = isP ? 'draggable polaroid-frame' : 'draggable';
+            const img = document.createElement('img');
+            img.src = ev.target.result;
+            img.style.width = isP ? '150px' : '200px';
+            div.appendChild(img);
+            div.style.left = '20px'; div.style.top = '50px';
+            addToCanvas(div);
+        };
+        r.readAsDataURL(e.target.files[0]);
+    }
+
+    function makeInteractive(el) {
+        const resizer = document.createElement('div');
+        resizer.className = 'resizer';
+        el.appendChild(resizer);
+        let startX, startY, startW, startH, startLeft, startTop;
+
+        const onStart = (e) => {
+            e.stopPropagation();
+            zIndex++; el.style.zIndex = zIndex;
+            const coords = getCoords(e);
+            startX = coords.rawX; startY = coords.rawY;
+            startW = el.offsetWidth; startH = el.offsetHeight;
+            startLeft = el.offsetLeft; startTop = el.offsetTop;
+            const isResizing = e.target === resizer;
+
+            const onMove = (moveEv) => {
+                const moveCoords = getCoords(moveEv);
+                if (isResizing) {
+                    el.style.width = (startW + (moveCoords.rawX - startX)) + "px";
+                    const img = el.querySelector('img');
+                    if(img) img.style.width = "100%";
+                } else {
+                    el.style.left = (startLeft + (moveCoords.rawX - startX)) + "px";
+                    el.style.top = (startTop + (moveCoords.rawY - startY)) + "px";
+                }
+            };
+
+            const onEnd = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('touchmove', onMove);
+            };
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('touchmove', onMove, {passive: false});
+            document.addEventListener('mouseup', onEnd);
+            document.addEventListener('touchend', onEnd);
+        };
+        el.addEventListener('mousedown', onStart);
+        el.addEventListener('touchstart', onStart, {passive: false});
+    }
+
+    function undo() { if(history.length > 0) history.pop().remove(); }
+
+    function exportScrapbook() {
+        html2canvas(container).then(canvas => {
+            const link = document.createElement('a');
+            link.download = 'scrapbook.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+    }
 </script>
 </body>
 </html>
